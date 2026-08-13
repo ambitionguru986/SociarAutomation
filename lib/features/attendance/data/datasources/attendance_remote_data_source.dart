@@ -61,7 +61,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     request.fields['hris_shift_type_id'] = '1';
     request.fields['check_in'] = '09:00';
-    request.fields['check_out'] = '19:00';
+    request.fields['check_out'] = '18:00';
     request.fields['request_date'] = date;
     request.fields['request_type'] = 'missing_punch_out';
     if (reason.isNotEmpty) {
