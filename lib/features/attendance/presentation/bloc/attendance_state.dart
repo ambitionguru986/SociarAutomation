@@ -1,32 +1,55 @@
-import 'package:equatable/equatable.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-sealed class AttendanceState extends Equatable {
-  final List<String> logs;
-  final String? savedToken;
+part 'attendance_state.freezed.dart';
 
-  const AttendanceState({this.logs = const [], this.savedToken});
+@freezed
+sealed class AttendanceState with _$AttendanceState {
+  const factory AttendanceState.initial({
+    @Default([]) List<String> logs,
+    String? savedToken,
+    DateTime? startDate,
+    DateTime? endDate,
+    @Default(true) bool saveTokenLocally,
+    @Default(false) bool isSingleDateMode,
+    @Default(true) bool skipWeekends,
+    @Default(true) bool submitAttendance,
+    @Default(false) bool submitWorklog,
+  }) = AttendanceInitial;
 
-  @override
-  List<Object?> get props => [logs, savedToken];
-}
+  const factory AttendanceState.running({
+    required List<String> logs,
+    String? savedToken,
+    DateTime? startDate,
+    DateTime? endDate,
+    @Default(true) bool saveTokenLocally,
+    @Default(false) bool isSingleDateMode,
+    @Default(true) bool skipWeekends,
+    @Default(true) bool submitAttendance,
+    @Default(false) bool submitWorklog,
+  }) = AttendanceRunning;
 
-class AttendanceInitial extends AttendanceState {
-  const AttendanceInitial({super.savedToken});
-}
+  const factory AttendanceState.completed({
+    required List<String> logs,
+    String? savedToken,
+    DateTime? startDate,
+    DateTime? endDate,
+    @Default(true) bool saveTokenLocally,
+    @Default(false) bool isSingleDateMode,
+    @Default(true) bool skipWeekends,
+    @Default(true) bool submitAttendance,
+    @Default(false) bool submitWorklog,
+  }) = AttendanceCompleted;
 
-class AttendanceRunning extends AttendanceState {
-  const AttendanceRunning({required super.logs, super.savedToken});
-}
-
-class AttendanceCompleted extends AttendanceState {
-  const AttendanceCompleted({required super.logs, super.savedToken});
-}
-
-class AttendanceError extends AttendanceState {
-  final String message;
-
-  const AttendanceError({required this.message, required super.logs, super.savedToken});
-
-  @override
-  List<Object?> get props => [message, logs, savedToken];
+  const factory AttendanceState.error({
+    required String message,
+    required List<String> logs,
+    String? savedToken,
+    DateTime? startDate,
+    DateTime? endDate,
+    @Default(true) bool saveTokenLocally,
+    @Default(false) bool isSingleDateMode,
+    @Default(true) bool skipWeekends,
+    @Default(true) bool submitAttendance,
+    @Default(false) bool submitWorklog,
+  }) = AttendanceError;
 }

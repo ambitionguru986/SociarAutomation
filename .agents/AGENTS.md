@@ -92,7 +92,7 @@ When the user invokes `/code-review` or asks you to review or refactor Dart/Flut
 - Avoid rebuilding the entire widget tree — use `BlocBuilder` with a `buildWhen` predicate.
 - Use `RepaintBoundary` around complex animations or widgets that repaint frequently.
 - Cache network images with `cached_network_image`; never use `Image.network` directly in lists.
-- Avoid `setState` in deeply nested widgets — lift state to the appropriate bloc/provider.
+- **Do not use `setState`**. Move all state logic to BLoC and use `BlocSelector` or `BlocBuilder` for targeted UI rebuilds.
 - Use `AutomaticKeepAliveClientMixin` only for tabs that are expensive to rebuild.
 
 ### 3.4 Navigation
@@ -142,9 +142,10 @@ When the user invokes `/code-review` or asks you to review or refactor Dart/Flut
 
 - States should carry all data needed by the UI — avoid having the UI reach into other services.
 - Use `BlocConsumer` only when you need both `listen` (side effects) and `builder` (UI rebuild); use `BlocBuilder` alone when there are no side effects.
-- Use `BlocSelector` to subscribe to a sub-field of state, avoiding full rebuilds.
+- Move all state logic into the BLoC and use `BlocSelector` to subscribe to a sub-field of state, avoiding full rebuilds and completely removing the need for `setState`.
 - Close `StreamSubscription`s and other resources in `close()` override of the BLoC.
-- Keep state classes sealed (exhaustive switch) so new states force UI update handling.
+- States must be created using `freezed` with union types (`@freezed`).
+- Keep state classes sealed using freezed so new states force UI update handling via `.when()` or `.map()`.
 
 ---
 

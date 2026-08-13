@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'features/attendance/presentation/bloc/attendance_bloc.dart';
-import 'features/attendance/presentation/pages/automator_screen.dart';
+import 'features/attendance/presentation/screens/automator_screen.dart';
 import 'core/di/injection_container.dart' as di;
 
 void main() async {

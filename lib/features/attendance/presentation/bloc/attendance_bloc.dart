@@ -34,10 +34,28 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     required this.submitWorklog,
     required this.fetchPendingRequestIds,
     required this.approveAttendanceRequest,
-  }) : super(const AttendanceInitial()) {
+  }) : super(const AttendanceState.initial()) {
     on<LoadTokenEvent>(_onLoadToken);
+    on<UpdateFormStateEvent>(_onUpdateFormState);
     on<ExecuteAttendanceEvent>(_onExecuteAttendance);
     on<ApproveAttendanceRequestsEvent>(_onApproveAttendanceRequests);
+  }
+
+  void _onUpdateFormState(
+    UpdateFormStateEvent event,
+    Emitter<AttendanceState> emit,
+  ) {
+    if (state is AttendanceInitial) {
+      emit(state.copyWith(
+        startDate: event.startDate ?? state.startDate,
+        endDate: event.endDate ?? state.endDate,
+        saveTokenLocally: event.saveTokenLocally ?? state.saveTokenLocally,
+        isSingleDateMode: event.isSingleDateMode ?? state.isSingleDateMode,
+        skipWeekends: event.skipWeekends ?? state.skipWeekends,
+        submitAttendance: event.submitAttendance ?? state.submitAttendance,
+        submitWorklog: event.submitWorklog ?? state.submitWorklog,
+      ));
+    }
   }
 
   Future<void> _onLoadToken(
@@ -46,8 +64,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   ) async {
     final result = await getToken(const NoParams());
     result.fold(
-      (failure) => emit(const AttendanceInitial()),
-      (token) => emit(AttendanceInitial(savedToken: token)),
+      (failure) => emit(const AttendanceState.initial()),
+      (token) => emit(AttendanceState.initial(savedToken: token)),
     );
   }
 
@@ -55,39 +73,49 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     ExecuteAttendanceEvent event,
     Emitter<AttendanceState> emit,
   ) async {
-    if (event.saveTokenLocally) {
+    final saveLocally = state.saveTokenLocally;
+    if (saveLocally) {
       await saveToken(event.token);
     }
-    final previousToken = event.saveTokenLocally ? event.token : null;
+    final previousToken = saveLocally ? event.token : null;
 
     final currentLogs = <String>['🚀 Starting execution...'];
-    emit(AttendanceRunning(logs: List.from(currentLogs), savedToken: previousToken));
+    
+    void emitRunning() {
+      emit(AttendanceState.running(
+        logs: List.from(currentLogs),
+        savedToken: previousToken,
+        startDate: state.startDate,
+        endDate: state.endDate,
+        saveTokenLocally: saveLocally,
+        isSingleDateMode: state.isSingleDateMode,
+        skipWeekends: state.skipWeekends,
+        submitAttendance: state.submitAttendance,
+        submitWorklog: state.submitWorklog,
+      ));
+    }
+    
+    emitRunning();
 
-    DateTime current = event.startDate;
-    final DateTime end = event.endDate;
+    DateTime current = state.startDate ?? DateTime.now();
+    final DateTime end = state.endDate ?? DateTime.now();
 
     while (!current.isAfter(end)) {
       // Skip Fridays (5) and Saturdays (6) when enabled
-      if (event.skipWeekends &&
+      if (state.skipWeekends &&
           (current.weekday == DateTime.friday ||
               current.weekday == DateTime.saturday)) {
         currentLogs.add('⏭️ [${_formatDate(current)}] Skipped (Weekend)');
-        emit(AttendanceRunning(
-          logs: List.from(currentLogs),
-          savedToken: previousToken,
-        ));
+        emitRunning();
         current = current.add(const Duration(days: 1));
         continue;
       }
 
       final String dateStr = _formatDate(current);
 
-      if (event.submitAttendance) {
+      if (state.submitAttendance) {
         currentLogs.add('⏳ [$dateStr] Processing Attendance...');
-        emit(AttendanceRunning(
-          logs: List.from(currentLogs),
-          savedToken: previousToken,
-        ));
+        emitRunning();
 
         final result = await submitAttendance(
           ApiParams(date: dateStr, token: event.token, reason: event.reason),
@@ -98,30 +126,21 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           (_) => currentLogs.add('✅ [$dateStr] Attendance Successful'),
         );
 
-        emit(AttendanceRunning(
-          logs: List.from(currentLogs),
-          savedToken: previousToken,
-        ));
+        emitRunning();
         await Future<void>.delayed(const Duration(milliseconds: 600));
       }
 
-      if (event.submitWorklog) {
+      if (state.submitWorklog) {
         final textForDate = _getTextForDate(event.worklogText, dateStr);
 
         if (textForDate == null) {
           currentLogs.add(
             '⏭️ [$dateStr] Skipped Worklog (No data provided for this date)',
           );
-          emit(AttendanceRunning(
-            logs: List.from(currentLogs),
-            savedToken: previousToken,
-          ));
+          emitRunning();
         } else {
           currentLogs.add('⏳ [$dateStr] Processing Worklog...');
-          emit(AttendanceRunning(
-            logs: List.from(currentLogs),
-            savedToken: previousToken,
-          ));
+          emitRunning();
 
           final entries = _parseEntries(textForDate);
 
@@ -154,10 +173,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
             },
           );
 
-          emit(AttendanceRunning(
-            logs: List.from(currentLogs),
-            savedToken: previousToken,
-          ));
+          emitRunning();
           await Future<void>.delayed(const Duration(milliseconds: 600));
         }
       }
@@ -166,9 +182,16 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     }
 
     currentLogs.add('🏁 Execution completed.');
-    emit(AttendanceCompleted(
+    emit(AttendanceState.completed(
       logs: List.from(currentLogs),
       savedToken: previousToken,
+      startDate: state.startDate,
+      endDate: state.endDate,
+      saveTokenLocally: saveLocally,
+      isSingleDateMode: state.isSingleDateMode,
+      skipWeekends: state.skipWeekends,
+      submitAttendance: state.submitAttendance,
+      submitWorklog: state.submitWorklog,
     ));
   }
 
@@ -182,9 +205,16 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     final previousToken = event.saveTokenLocally ? event.token : null;
 
     final currentLogs = <String>['🚀 Fetching pending attendance requests...'];
-    emit(AttendanceRunning(
+    emit(AttendanceState.running(
       logs: List.from(currentLogs),
       savedToken: previousToken,
+      startDate: state.startDate,
+      endDate: state.endDate,
+      saveTokenLocally: event.saveTokenLocally,
+      isSingleDateMode: state.isSingleDateMode,
+      skipWeekends: state.skipWeekends,
+      submitAttendance: state.submitAttendance,
+      submitWorklog: state.submitWorklog,
     ));
 
     final fetchResult =
@@ -193,32 +223,60 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     await fetchResult.fold(
       (failure) async {
         currentLogs.add('❌ Failed to fetch requests: ${failure.message}');
-        emit(AttendanceCompleted(
+        emit(AttendanceState.completed(
           logs: List.from(currentLogs),
           savedToken: previousToken,
+          startDate: state.startDate,
+          endDate: state.endDate,
+          saveTokenLocally: event.saveTokenLocally,
+          isSingleDateMode: state.isSingleDateMode,
+          skipWeekends: state.skipWeekends,
+          submitAttendance: state.submitAttendance,
+          submitWorklog: state.submitWorklog,
         ));
       },
       (ids) async {
         if (ids.isEmpty) {
           currentLogs.add('✅ No pending requests found.');
-          emit(AttendanceCompleted(
+          emit(AttendanceState.completed(
             logs: List.from(currentLogs),
             savedToken: previousToken,
+            startDate: state.startDate,
+            endDate: state.endDate,
+            saveTokenLocally: event.saveTokenLocally,
+            isSingleDateMode: state.isSingleDateMode,
+            skipWeekends: state.skipWeekends,
+            submitAttendance: state.submitAttendance,
+            submitWorklog: state.submitWorklog,
           ));
           return;
         }
 
         currentLogs.add('📋 Found ${ids.length} pending request(s). Approving...');
-        emit(AttendanceRunning(
+        emit(AttendanceState.running(
           logs: List.from(currentLogs),
           savedToken: previousToken,
+          startDate: state.startDate,
+          endDate: state.endDate,
+          saveTokenLocally: event.saveTokenLocally,
+          isSingleDateMode: state.isSingleDateMode,
+          skipWeekends: state.skipWeekends,
+          submitAttendance: state.submitAttendance,
+          submitWorklog: state.submitWorklog,
         ));
 
         for (final id in ids) {
           currentLogs.add('⏳ Approving request #$id...');
-          emit(AttendanceRunning(
+          emit(AttendanceState.running(
             logs: List.from(currentLogs),
             savedToken: previousToken,
+            startDate: state.startDate,
+            endDate: state.endDate,
+            saveTokenLocally: event.saveTokenLocally,
+            isSingleDateMode: state.isSingleDateMode,
+            skipWeekends: state.skipWeekends,
+            submitAttendance: state.submitAttendance,
+            submitWorklog: state.submitWorklog,
           ));
 
           final result = await approveAttendanceRequest(
@@ -231,17 +289,31 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
             (_) => currentLogs.add('✅ Request #$id Approved'),
           );
 
-          emit(AttendanceRunning(
+          emit(AttendanceState.running(
             logs: List.from(currentLogs),
             savedToken: previousToken,
+            startDate: state.startDate,
+            endDate: state.endDate,
+            saveTokenLocally: event.saveTokenLocally,
+            isSingleDateMode: state.isSingleDateMode,
+            skipWeekends: state.skipWeekends,
+            submitAttendance: state.submitAttendance,
+            submitWorklog: state.submitWorklog,
           ));
           await Future<void>.delayed(const Duration(milliseconds: 600));
         }
 
         currentLogs.add('🏁 All requests processed.');
-        emit(AttendanceCompleted(
+        emit(AttendanceState.completed(
           logs: List.from(currentLogs),
           savedToken: previousToken,
+          startDate: state.startDate,
+          endDate: state.endDate,
+          saveTokenLocally: event.saveTokenLocally,
+          isSingleDateMode: state.isSingleDateMode,
+          skipWeekends: state.skipWeekends,
+          submitAttendance: state.submitAttendance,
+          submitWorklog: state.submitWorklog,
         ));
       },
     );

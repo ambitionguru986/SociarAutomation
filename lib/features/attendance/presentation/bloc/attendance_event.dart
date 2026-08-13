@@ -9,41 +9,50 @@ abstract class AttendanceEvent extends Equatable {
 
 class LoadTokenEvent extends AttendanceEvent {}
 
+class UpdateFormStateEvent extends AttendanceEvent {
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final bool? saveTokenLocally;
+  final bool? isSingleDateMode;
+  final bool? skipWeekends;
+  final bool? submitAttendance;
+  final bool? submitWorklog;
+
+  const UpdateFormStateEvent({
+    this.startDate,
+    this.endDate,
+    this.saveTokenLocally,
+    this.isSingleDateMode,
+    this.skipWeekends,
+    this.submitAttendance,
+    this.submitWorklog,
+  });
+
+  @override
+  List<Object?> get props => [
+        startDate,
+        endDate,
+        saveTokenLocally,
+        isSingleDateMode,
+        skipWeekends,
+        submitAttendance,
+        submitWorklog,
+      ];
+}
+
 class ExecuteAttendanceEvent extends AttendanceEvent {
   final String token;
-  final DateTime startDate;
-  final DateTime endDate;
-  final bool saveTokenLocally;
-  final bool skipWeekends;
-  final bool submitAttendance;
-  final bool submitWorklog;
   final String worklogText;
   final String reason;
 
   const ExecuteAttendanceEvent({
     required this.token,
-    required this.startDate,
-    required this.endDate,
-    this.saveTokenLocally = true,
-    this.skipWeekends = true,
-    this.submitAttendance = true,
-    this.submitWorklog = false,
     this.worklogText = "",
     this.reason = "",
   });
 
   @override
-  List<Object> get props => [
-        token,
-        startDate,
-        endDate,
-        saveTokenLocally,
-        skipWeekends,
-        submitAttendance,
-        submitWorklog,
-        worklogText,
-        reason,
-      ];
+  List<Object> get props => [token, worklogText, reason];
 }
 
 class ApproveAttendanceRequestsEvent extends AttendanceEvent {

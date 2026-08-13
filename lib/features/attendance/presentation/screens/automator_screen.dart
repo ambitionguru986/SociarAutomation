@@ -16,19 +16,16 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _worklogController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  DateTimeRange? _selectedDateRange;
-  bool _saveTokenLocally = true;
-  bool _isSingleDateMode = false;
-  bool _skipWeekends = true;
-  bool _submitAttendance = true;
-  bool _submitWorklog = false;
 
   @override
   void initState() {
     super.initState();
     context.read<AttendanceBloc>().add(LoadTokenEvent());
     final today = DateTime.now();
-    _selectedDateRange = DateTimeRange(start: today, end: today);
+    context.read<AttendanceBloc>().add(UpdateFormStateEvent(
+          startDate: today,
+          endDate: today,
+        ));
   }
 
   @override
@@ -53,34 +50,40 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
   }
 
   Future<void> _pickDateRange(BuildContext context) async {
+    final bloc = context.read<AttendanceBloc>();
+    final currentState = bloc.state;
     DateTime now = DateTime.now();
+    DateTimeRange? initialRange;
+    if (currentState.startDate != null && currentState.endDate != null) {
+      initialRange = DateTimeRange(start: currentState.startDate!, end: currentState.endDate!);
+    }
+
     DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      initialDateRange: _selectedDateRange,
+      initialDateRange: initialRange,
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: now.add(const Duration(days: 365)),
     );
 
-    if (picked != null) {
-      setState(() {
-        _selectedDateRange = picked;
-      });
+    if (picked != null && context.mounted) {
+      bloc.add(UpdateFormStateEvent(startDate: picked.start, endDate: picked.end));
     }
   }
 
   Future<void> _pickSingleDate(BuildContext context) async {
+    final bloc = context.read<AttendanceBloc>();
+    final currentState = bloc.state;
     DateTime now = DateTime.now();
+    
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDateRange?.start ?? now,
+      initialDate: currentState.startDate ?? now,
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: now.add(const Duration(days: 365)),
     );
 
-    if (picked != null) {
-      setState(() {
-        _selectedDateRange = DateTimeRange(start: picked, end: picked);
-      });
+    if (picked != null && context.mounted) {
+      bloc.add(UpdateFormStateEvent(startDate: picked, endDate: picked));
     }
   }
 
@@ -90,23 +93,12 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String dateRangeText = "No date selected";
-    if (_selectedDateRange != null) {
-      if (_selectedDateRange!.start.day == _selectedDateRange!.end.day && 
-          _selectedDateRange!.start.month == _selectedDateRange!.end.month && 
-          _selectedDateRange!.start.year == _selectedDateRange!.end.year) {
-        dateRangeText = _formatDate(_selectedDateRange!.start);
-      } else {
-        dateRangeText = "${_formatDate(_selectedDateRange!.start)} to ${_formatDate(_selectedDateRange!.end)}";
-      }
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Attendance Automator'),
         centerTitle: true,
       ),
-      body: BlocConsumer<AttendanceBloc, AttendanceState>(
+      body: BlocListener<AttendanceBloc, AttendanceState>(
         listener: (context, state) {
           if (state is AttendanceRunning || state is AttendanceCompleted) {
             _scrollToBottom();
@@ -114,23 +106,20 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
           if (state is AttendanceInitial && state.savedToken != null && _tokenController.text.isEmpty) {
             _tokenController.text = state.savedToken!;
           }
-          // Also set token if it loaded dynamically from another step and field is empty
           if (state.savedToken != null && _tokenController.text.isEmpty) {
             _tokenController.text = state.savedToken!;
           }
         },
-        builder: (context, state) {
-          bool isRunning = state is AttendanceRunning;
-          List<String> logs = state.logs;
-
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Token Input
-                  TextField(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Token Input
+              BlocSelector<AttendanceBloc, AttendanceState, bool>(
+                selector: (state) => state is AttendanceRunning,
+                builder: (context, isRunning) {
+                  return TextField(
                     controller: _tokenController,
                     decoration: const InputDecoration(
                       labelText: 'Bearer Token',
@@ -140,41 +129,52 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                     ),
                     obscureText: true,
                     enabled: !isRunning,
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CheckboxListTile(
+                  );
+                },
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: BlocSelector<AttendanceBloc, AttendanceState, (bool, bool)>(
+                      selector: (state) => (state.saveTokenLocally, state is AttendanceRunning),
+                      builder: (context, tuple) {
+                        return CheckboxListTile(
                           title: const Text("Save token"),
-                          value: _saveTokenLocally,
-                          onChanged: isRunning ? null : (val) {
-                            setState(() {
-                              _saveTokenLocally = val ?? true;
-                            });
+                          value: tuple.$1,
+                          onChanged: tuple.$2 ? null : (val) {
+                            context.read<AttendanceBloc>().add(UpdateFormStateEvent(saveTokenLocally: val));
                           },
                           controlAffinity: ListTileControlAffinity.leading,
                           contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      Expanded(
-                        child: CheckboxListTile(
-                          title: const Text("Skip Weekends"),
-                          value: _skipWeekends,
-                          onChanged: isRunning ? null : (val) {
-                            setState(() {
-                              _skipWeekends = val ?? true;
-                            });
-                          },
-                          controlAffinity: ListTileControlAffinity.leading,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  Expanded(
+                    child: BlocSelector<AttendanceBloc, AttendanceState, (bool, bool)>(
+                      selector: (state) => (state.skipWeekends, state is AttendanceRunning),
+                      builder: (context, tuple) {
+                        return CheckboxListTile(
+                          title: const Text("Skip Weekends"),
+                          value: tuple.$1,
+                          onChanged: tuple.$2 ? null : (val) {
+                            context.read<AttendanceBloc>().add(UpdateFormStateEvent(skipWeekends: val));
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
 
-                  // Reason / Remarks Input
-                  TextField(
+              // Reason / Remarks Input
+              BlocSelector<AttendanceBloc, AttendanceState, bool>(
+                selector: (state) => state is AttendanceRunning,
+                builder: (context, isRunning) {
+                  return TextField(
                     controller: _reasonController,
                     decoration: const InputDecoration(
                       labelText: 'Reason / Remarks',
@@ -183,71 +183,103 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                       prefixIcon: Icon(Icons.edit_note),
                     ),
                     enabled: !isRunning,
-                  ),
-                  const SizedBox(height: 16),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
 
-                  // Action Selection
-                  Row(
-                    children: [
-                      const Text("Actions:", style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 12),
-                      FilterChip(
+              // Action Selection
+              Row(
+                children: [
+                  const Text("Actions:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  BlocSelector<AttendanceBloc, AttendanceState, (bool, bool)>(
+                    selector: (state) => (state.submitAttendance, state is AttendanceRunning),
+                    builder: (context, tuple) {
+                      return FilterChip(
                         label: const Text("Attendance"),
-                        selected: _submitAttendance,
-                        onSelected: isRunning ? null : (selected) {
-                          setState(() {
-                            _submitAttendance = selected;
-                          });
+                        selected: tuple.$1,
+                        onSelected: tuple.$2 ? null : (selected) {
+                          context.read<AttendanceBloc>().add(UpdateFormStateEvent(submitAttendance: selected));
                         },
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  BlocSelector<AttendanceBloc, AttendanceState, (bool, bool)>(
+                    selector: (state) => (state.submitWorklog, state is AttendanceRunning),
+                    builder: (context, tuple) {
+                      return FilterChip(
                         label: const Text("Worklog"),
-                        selected: _submitWorklog,
-                        onSelected: isRunning ? null : (selected) {
-                          setState(() {
-                            _submitWorklog = selected;
-                          });
+                        selected: tuple.$1,
+                        onSelected: tuple.$2 ? null : (selected) {
+                          context.read<AttendanceBloc>().add(UpdateFormStateEvent(submitWorklog: selected));
                         },
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 12),
+                ],
+              ),
+              const SizedBox(height: 12),
 
-                  // Mode Selection
-                  Row(
-                    children: [
-                      const Text("Date Mode:", style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 12),
-                      ChoiceChip(
-                        label: const Text("Range"),
-                        selected: !_isSingleDateMode,
-                        onSelected: isRunning ? null : (selected) {
-                          if (selected) {
-                            setState(() {
-                              _isSingleDateMode = false;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: const Text("Single Day"),
-                        selected: _isSingleDateMode,
-                        onSelected: isRunning ? null : (selected) {
-                          if (selected) {
-                            setState(() {
-                              _isSingleDateMode = true;
-                            });
-                          }
-                        },
-                      ),
-                    ],
+              // Mode Selection
+              Row(
+                children: [
+                  const Text("Date Mode:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  BlocSelector<AttendanceBloc, AttendanceState, (bool, bool)>(
+                    selector: (state) => (state.isSingleDateMode, state is AttendanceRunning),
+                    builder: (context, tuple) {
+                      final isSingleDate = tuple.$1;
+                      final isRunning = tuple.$2;
+                      return Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text("Range"),
+                            selected: !isSingleDate,
+                            onSelected: isRunning ? null : (selected) {
+                              if (selected) {
+                                context.read<AttendanceBloc>().add(const UpdateFormStateEvent(isSingleDateMode: false));
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text("Single Day"),
+                            selected: isSingleDate,
+                            onSelected: isRunning ? null : (selected) {
+                              if (selected) {
+                                context.read<AttendanceBloc>().add(const UpdateFormStateEvent(isSingleDateMode: true));
+                              }
+                            },
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 12),
+                ],
+              ),
+              const SizedBox(height: 12),
 
-                  // Date Selection
-                  Card(
+              // Date Selection
+              BlocSelector<AttendanceBloc, AttendanceState, (DateTime?, DateTime?, bool, bool)>(
+                selector: (state) => (state.startDate, state.endDate, state.isSingleDateMode, state is AttendanceRunning),
+                builder: (context, tuple) {
+                  final start = tuple.$1;
+                  final end = tuple.$2;
+                  final isSingleDate = tuple.$3;
+                  final isRunning = tuple.$4;
+                  
+                  String dateRangeText = "No date selected";
+                  if (start != null && end != null) {
+                    if (start.day == end.day && start.month == end.month && start.year == end.year) {
+                      dateRangeText = _formatDate(start);
+                    } else {
+                      dateRangeText = "${_formatDate(start)} to ${_formatDate(end)}";
+                    }
+                  }
+
+                  return Card(
                     elevation: 2,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -259,36 +291,37 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _isSingleDateMode ? 'Selected Date:' : 'Selected Date Range:',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
+                                  isSingleDate ? 'Selected Date:' : 'Selected Date Range:',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  dateRangeText,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
+                                Text(dateRangeText, style: const TextStyle(fontSize: 16)),
                               ],
                             ),
                           ),
                           ElevatedButton.icon(
                             onPressed: isRunning 
                                 ? null 
-                                : () => _isSingleDateMode ? _pickSingleDate(context) : _pickDateRange(context),
-                            icon: Icon(_isSingleDateMode ? Icons.calendar_today : Icons.date_range),
-                            label: Text(_isSingleDateMode ? 'Select Date' : 'Select Dates'),
+                                : () => isSingleDate ? _pickSingleDate(context) : _pickDateRange(context),
+                            icon: Icon(isSingleDate ? Icons.calendar_today : Icons.date_range),
+                            label: Text(isSingleDate ? 'Select Date' : 'Select Dates'),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Worklog Input (Conditional)
-                  if (_submitWorklog) ...[
-                    TextField(
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              
+              // Worklog Input (Conditional)
+              BlocSelector<AttendanceBloc, AttendanceState, bool>(
+                selector: (state) => state.submitWorklog,
+                builder: (context, submitWorklog) {
+                  if (!submitWorklog) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: TextField(
                       controller: _worklogController,
                       maxLines: 5,
                       style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
@@ -309,11 +342,15 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                  ],
+                  );
+                },
+              ),
 
-                  // Approve Pending Requests
-                  OutlinedButton.icon(
+              // Approve Pending Requests
+              BlocSelector<AttendanceBloc, AttendanceState, bool>(
+                selector: (state) => state is AttendanceRunning,
+                builder: (context, isRunning) {
+                  return OutlinedButton.icon(
                     onPressed: isRunning
                         ? null
                         : () {
@@ -327,7 +364,7 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                             context.read<AttendanceBloc>().add(
                                   ApproveAttendanceRequestsEvent(
                                     token: token,
-                                    saveTokenLocally: _saveTokenLocally,
+                                    saveTokenLocally: context.read<AttendanceBloc>().state.saveTokenLocally,
                                   ),
                                 );
                           },
@@ -339,11 +376,16 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
 
-                  // Controls
-                  ElevatedButton(
+              // Controls
+              BlocBuilder<AttendanceBloc, AttendanceState>(
+                builder: (context, state) {
+                  final isRunning = state is AttendanceRunning;
+                  return ElevatedButton(
                     onPressed: isRunning
                         ? null
                         : () {
@@ -354,16 +396,16 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                               );
                               return;
                             }
-                            if (_selectedDateRange == null) {
+                            if (state.startDate == null || state.endDate == null) {
                               return;
                             }
-                            if (!_submitAttendance && !_submitWorklog) {
+                            if (!state.submitAttendance && !state.submitWorklog) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Please select at least one action (Attendance or Worklog).')),
                               );
                               return;
                             }
-                            if (_submitWorklog && _worklogController.text.trim().isEmpty) {
+                            if (state.submitWorklog && _worklogController.text.trim().isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Please enter a worklog.')),
                               );
@@ -372,12 +414,6 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                             context.read<AttendanceBloc>().add(
                                   ExecuteAttendanceEvent(
                                     token: token,
-                                    startDate: _selectedDateRange!.start,
-                                    endDate: _selectedDateRange!.end,
-                                    saveTokenLocally: _saveTokenLocally,
-                                    skipWeekends: _skipWeekends,
-                                    submitAttendance: _submitAttendance,
-                                    submitWorklog: _submitWorklog,
                                     worklogText: _worklogController.text,
                                     reason: _reasonController.text.trim(),
                                   ),
@@ -411,17 +447,22 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                             'Execute',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                  ),
-                  const SizedBox(height: 24),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
 
-                  // Log Console
-                  const Text(
-                    'Execution Logs',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 350, // Fixed height for log console
+              // Log Console
+              const Text(
+                'Execution Logs',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              BlocSelector<AttendanceBloc, AttendanceState, List<String>>(
+                selector: (state) => state.logs,
+                builder: (context, logs) {
+                  return Container(
+                    height: 350,
                     decoration: BoxDecoration(
                       color: Colors.black87,
                       borderRadius: BorderRadius.circular(8),
@@ -451,12 +492,12 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                               );
                             },
                           ),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ),
       ),
     );
   }
