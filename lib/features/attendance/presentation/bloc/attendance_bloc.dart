@@ -71,7 +71,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         currentLogs.add("⏳ [$dateStr] Processing Attendance...");
         emit(AttendanceRunning(logs: List.from(currentLogs), savedToken: previousToken));
 
-        final result = await submitAttendance(ApiParams(date: dateStr, token: event.token));
+        final result = await submitAttendance(ApiParams(date: dateStr, token: event.token, reason: event.reason));
         
         result.fold(
           (failure) {

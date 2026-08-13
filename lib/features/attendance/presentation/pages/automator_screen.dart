@@ -13,6 +13,7 @@ class AutomatorScreen extends StatefulWidget {
 
 class _AutomatorScreenState extends State<AutomatorScreen> {
   final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _worklogController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   DateTimeRange? _selectedDateRange;
@@ -33,6 +34,7 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
   @override
   void dispose() {
     _tokenController.dispose();
+    _reasonController.dispose();
     _worklogController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -168,6 +170,19 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Reason / Remarks Input
+                  TextField(
+                    controller: _reasonController,
+                    decoration: const InputDecoration(
+                      labelText: 'Reason / Remarks',
+                      hintText: 'e.g. work from DN',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.edit_note),
+                    ),
+                    enabled: !isRunning,
                   ),
                   const SizedBox(height: 16),
 
@@ -364,6 +379,7 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                                     submitAttendance: _submitAttendance,
                                     submitWorklog: _submitWorklog,
                                     worklogText: _worklogController.text,
+                                    reason: _reasonController.text.trim(),
                                   ),
                                 );
                           },

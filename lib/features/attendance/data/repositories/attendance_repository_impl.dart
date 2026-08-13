@@ -43,9 +43,9 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
   }
 
   @override
-  Future<Either<Failure, void>> submitAttendance(String date, String token) async {
+  Future<Either<Failure, void>> submitAttendance(String date, String token, String reason) async {
     try {
-      await remoteDataSource.submitAttendance(date, token);
+      await remoteDataSource.submitAttendance(date, token, reason);
       return const Right(null);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

@@ -5,7 +5,7 @@ import '../../domain/entities/worklog_entry.dart';
 import '../../../../core/error/exceptions.dart';
 
 abstract class AttendanceRemoteDataSource {
-  Future<void> submitAttendance(String date, String token);
+  Future<void> submitAttendance(String date, String token, String reason);
   Future<void> submitWorklog(String date, String token, List<WorklogEntry> entries);
   Future<List<int>> fetchPendingRequestIds(String token);
   Future<void> approveAttendanceRequest(int id, String token);
@@ -20,16 +20,16 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Map<String, String> _buildHeaders(String token) => {
     'accept': 'application/json, text/plain, */*',
     'accept-encoding': 'gzip, deflate, br, zstd',
-    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+    'accept-language': 'en-US,en;q=0.9',
     'authorization': 'Bearer $token',
-    'origin': 'https://ag.sociair.io',
-    'referer': 'https://ag.sociair.io/',
-    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
+    'origin': 'https://eynoratech.sociair.io',
+    'referer': 'https://eynoratech.sociair.io/',
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
     'x-requested-with': 'XMLHttpRequest',
   };
 
   @override
-  Future<void> submitAttendance(String date, String token) async {
+  Future<void> submitAttendance(String date, String token, String reason) async {
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('https://new-central-api.sociair.com/api/hris/attendance-request'),
@@ -37,18 +37,15 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     request.headers.addAll(_buildHeaders(token));
 
-    // Derive fixed times
-    final requestDate = '${date}T18:15:00.000000Z';
-    const checkIn = '09:00';
-    const checkOut = '18:00';
-
-    // Add form data
-    request.fields['request_date'] = requestDate;
+    // Add form data (matching the new curl)
+    request.fields['hris_shift_type_id'] = '1';
+    request.fields['check_in'] = '09:00';
+    request.fields['check_out'] = '19:00';
+    request.fields['request_date'] = date; // plain YYYY-MM-DD
     request.fields['request_type'] = 'missing_punch_out';
-    request.fields['hris_shift_type_id'] = '2';
-    request.fields['remarks'] = 'work from DN';
-    request.fields['check_in'] = checkIn;
-    request.fields['check_out'] = checkOut;
+    if (reason.isNotEmpty) {
+      request.fields['remarks'] = reason;
+    }
 
     final streamedResponse = await client.send(request);
     final response = await http.Response.fromStream(streamedResponse);

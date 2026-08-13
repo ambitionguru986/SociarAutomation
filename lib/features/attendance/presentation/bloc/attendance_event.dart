@@ -18,6 +18,7 @@ class ExecuteAttendanceEvent extends AttendanceEvent {
   final bool submitAttendance;
   final bool submitWorklog;
   final String worklogText;
+  final String reason;
 
   const ExecuteAttendanceEvent({
     required this.token,
@@ -28,6 +29,7 @@ class ExecuteAttendanceEvent extends AttendanceEvent {
     this.submitAttendance = true,
     this.submitWorklog = false,
     this.worklogText = "",
+    this.reason = "",
   });
 
   @override
@@ -40,6 +42,7 @@ class ExecuteAttendanceEvent extends AttendanceEvent {
         submitAttendance,
         submitWorklog,
         worklogText,
+        reason,
       ];
 }
 

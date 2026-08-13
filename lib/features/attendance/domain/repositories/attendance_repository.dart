@@ -5,7 +5,7 @@ import '../entities/worklog_entry.dart';
 abstract class AttendanceRepository {
   Future<Either<Failure, void>> saveToken(String token);
   Future<Either<Failure, String?>> getToken();
-  Future<Either<Failure, void>> submitAttendance(String date, String token);
+  Future<Either<Failure, void>> submitAttendance(String date, String token, String reason);
   Future<Either<Failure, void>> submitWorklog(String date, String token, List<WorklogEntry> entries);
   Future<Either<Failure, List<int>>> fetchPendingRequestIds(String token);
   Future<Either<Failure, void>> approveAttendanceRequest(int id, String token);
