@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-abstract class AttendanceState extends Equatable {
+sealed class AttendanceState extends Equatable {
   final List<String> logs;
   final String? savedToken;
 

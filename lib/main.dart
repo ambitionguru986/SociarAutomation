@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'features/attendance/presentation/pages/automator_screen.dart';
-import 'injection_container.dart' as di;
+import 'core/di/injection_container.dart' as di;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

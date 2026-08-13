@@ -1,20 +1,21 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+import 'package:injectable/injectable.dart';
+
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../repositories/attendance_repository.dart';
 import '../entities/worklog_entry.dart';
-
-import 'package:injectable/injectable.dart';
+import '../repositories/attendance_repository.dart';
 
 @lazySingleton
 class SubmitWorklog implements UseCase<void, WorklogParams> {
   final AttendanceRepository repository;
-  SubmitWorklog(this.repository);
+
+  SubmitWorklog({required this.repository});
 
   @override
   Future<Either<Failure, void>> call(WorklogParams params) async {
-    return await repository.submitWorklog(params.date, params.token, params.entries);
+    return repository.submitWorklog(params.date, params.token, params.entries);
   }
 }
 

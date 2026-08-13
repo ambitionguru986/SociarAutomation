@@ -295,17 +295,17 @@ class _AutomatorScreenState extends State<AutomatorScreen> {
                       decoration: InputDecoration(
                         labelText: 'Daily Worklog Content',
                         hintText: '[Date: 2026-03-24]\n[09:00 - 13:00] Task details...\n[14:00 - 18:00] Next task details...\n\n[Date: 2026-03-25]\n[09:00 - 13:00] More tasks...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                         alignLabelWithHint: true,
-                        fillColor: Colors.white.withOpacity(0.05),
+                        fillColor: Colors.white.withValues(alpha: 0.05),
                         filled: true,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                       ),
                     ),

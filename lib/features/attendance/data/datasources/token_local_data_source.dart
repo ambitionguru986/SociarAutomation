@@ -1,6 +1,7 @@
-import '../../../../core/error/exceptions.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:injectable/injectable.dart';
+
+import '../../../../core/error/exceptions.dart';
 
 abstract class TokenLocalDataSource {
   Future<void> saveToken(String token);
@@ -11,25 +12,26 @@ const cachedTokenKey = 'auth_token';
 
 @LazySingleton(as: TokenLocalDataSource)
 class TokenLocalDataSourceImpl implements TokenLocalDataSource {
-  final SharedPreferences sharedPreferences;
+  final FlutterSecureStorage _storage;
 
-  TokenLocalDataSourceImpl({required this.sharedPreferences});
+  TokenLocalDataSourceImpl()
+      : _storage = const FlutterSecureStorage();
 
   @override
   Future<String?> getToken() async {
     try {
-      return sharedPreferences.getString(cachedTokenKey);
+      return await _storage.read(key: cachedTokenKey);
     } catch (e) {
-      throw CacheException();
+      throw CacheException('Failed to read token');
     }
   }
 
   @override
   Future<void> saveToken(String token) async {
     try {
-      await sharedPreferences.setString(cachedTokenKey, token);
+      await _storage.write(key: cachedTokenKey, value: token);
     } catch (e) {
-      throw ServerException('Failed to save token');
+      throw CacheException('Failed to save token');
     }
   }
 }

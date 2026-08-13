@@ -1,10 +1,17 @@
 import 'package:dartz/dartz.dart';
+import 'package:equatable/equatable.dart';
+
 import 'package:attendance_automator/core/error/failures.dart';
 
-// Interface for all usecases with arguments
-abstract class UseCase<Type, Params> {
-  Future<Either<Failure, Type>> call(Params params);
+// Interface for all use cases with arguments
+abstract class UseCase<T, Params> {
+  Future<Either<Failure, T>> call(Params params);
 }
 
-// Generic params class if no arguments are needed
-class NoParams {}
+// Params class for use cases that take no arguments
+class NoParams extends Equatable {
+  const NoParams();
+
+  @override
+  List<Object> get props => [];
+}

@@ -6,4 +6,4 @@ import 'injection_container.config.dart';
 final sl = GetIt.instance; // sl = Service Locator
 
 @InjectableInit()
-Future<void> init() async => await sl.init();
+Future<void> init() async => sl.init();

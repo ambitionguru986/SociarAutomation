@@ -19,9 +19,9 @@ import 'package:attendance_automator/features/attendance/data/repositories/atten
 import 'package:attendance_automator/features/attendance/domain/repositories/attendance_repository.dart'
     as _i818;
 import 'package:attendance_automator/features/attendance/domain/usecases/approve_attendance_request.dart'
-    as _i741;
+    as _i579;
 import 'package:attendance_automator/features/attendance/domain/usecases/fetch_pending_request_ids.dart'
-    as _i362;
+    as _i461;
 import 'package:attendance_automator/features/attendance/domain/usecases/get_token.dart'
     as _i110;
 import 'package:attendance_automator/features/attendance/domain/usecases/save_token.dart'
@@ -35,28 +35,21 @@ import 'package:attendance_automator/features/attendance/presentation/bloc/atten
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:http/http.dart' as _i519;
 import 'package:injectable/injectable.dart' as _i526;
-import 'package:shared_preferences/shared_preferences.dart' as _i460;
 
 extension GetItInjectableX on _i174.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
-  Future<_i174.GetIt> init({
+  _i174.GetIt init({
     String? environment,
     _i526.EnvironmentFilter? environmentFilter,
-  }) async {
+  }) {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final registerModule = _$RegisterModule();
-    await gh.factoryAsync<_i460.SharedPreferences>(
-      () => registerModule.prefs,
-      preResolve: true,
-    );
     gh.lazySingleton<_i519.Client>(() => registerModule.client);
+    gh.lazySingleton<_i834.TokenLocalDataSource>(
+      () => _i834.TokenLocalDataSourceImpl(),
+    );
     gh.lazySingleton<_i429.AttendanceRemoteDataSource>(
       () => _i429.AttendanceRemoteDataSourceImpl(client: gh<_i519.Client>()),
-    );
-    gh.lazySingleton<_i834.TokenLocalDataSource>(
-      () => _i834.TokenLocalDataSourceImpl(
-        sharedPreferences: gh<_i460.SharedPreferences>(),
-      ),
     );
     gh.lazySingleton<_i818.AttendanceRepository>(
       () => _i1063.AttendanceRepositoryImpl(
@@ -64,23 +57,28 @@ extension GetItInjectableX on _i174.GetIt {
         localDataSource: gh<_i834.TokenLocalDataSource>(),
       ),
     );
+    gh.lazySingleton<_i579.ApproveAttendanceRequest>(
+      () => _i579.ApproveAttendanceRequest(
+        repository: gh<_i818.AttendanceRepository>(),
+      ),
+    );
+    gh.lazySingleton<_i461.FetchPendingRequestIds>(
+      () => _i461.FetchPendingRequestIds(
+        repository: gh<_i818.AttendanceRepository>(),
+      ),
+    );
     gh.lazySingleton<_i110.GetToken>(
-      () => _i110.GetToken(gh<_i818.AttendanceRepository>()),
+      () => _i110.GetToken(repository: gh<_i818.AttendanceRepository>()),
     );
     gh.lazySingleton<_i893.SaveToken>(
-      () => _i893.SaveToken(gh<_i818.AttendanceRepository>()),
+      () => _i893.SaveToken(repository: gh<_i818.AttendanceRepository>()),
     );
     gh.lazySingleton<_i924.SubmitAttendance>(
-      () => _i924.SubmitAttendance(gh<_i818.AttendanceRepository>()),
+      () =>
+          _i924.SubmitAttendance(repository: gh<_i818.AttendanceRepository>()),
     );
     gh.lazySingleton<_i176.SubmitWorklog>(
-      () => _i176.SubmitWorklog(gh<_i818.AttendanceRepository>()),
-    );
-    gh.lazySingleton<_i362.FetchPendingRequestIds>(
-      () => _i362.FetchPendingRequestIds(gh<_i818.AttendanceRepository>()),
-    );
-    gh.lazySingleton<_i741.ApproveAttendanceRequest>(
-      () => _i741.ApproveAttendanceRequest(gh<_i818.AttendanceRepository>()),
+      () => _i176.SubmitWorklog(repository: gh<_i818.AttendanceRepository>()),
     );
     gh.factory<_i193.AttendanceBloc>(
       () => _i193.AttendanceBloc(
@@ -88,8 +86,8 @@ extension GetItInjectableX on _i174.GetIt {
         saveToken: gh<_i893.SaveToken>(),
         submitAttendance: gh<_i924.SubmitAttendance>(),
         submitWorklog: gh<_i176.SubmitWorklog>(),
-        fetchPendingRequestIds: gh<_i362.FetchPendingRequestIds>(),
-        approveAttendanceRequest: gh<_i741.ApproveAttendanceRequest>(),
+        fetchPendingRequestIds: gh<_i461.FetchPendingRequestIds>(),
+        approveAttendanceRequest: gh<_i579.ApproveAttendanceRequest>(),
       ),
     );
     return this;
